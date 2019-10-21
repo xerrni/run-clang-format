@@ -56,7 +56,7 @@ def excludes_from_file(ignore_file):
     except EnvironmentError as e:
         if e.errno != errno.ENOENT:
             raise
-    return excludes;
+    return excludes
 
 def list_files(files, recursive=False, extensions=None, exclude=None):
     if extensions is None:
@@ -130,7 +130,14 @@ def run_clang_format_diff(args, file):
             original = f.readlines()
     except IOError as exc:
         raise DiffError(str(exc))
-    invocation = [args.clang_format_executable, file]
+
+    invocation = [args.clang_format_executable]
+    if args.inplace:
+        invocation.append("-i")
+    if args.style is not None:
+        invocation.append('--style')
+        invocation.append(args.style)
+    invocation.append(file)
 
     # Use of utf-8 to decode the process output.
     #
@@ -186,6 +193,15 @@ def run_clang_format_diff(args, file):
             ),
             errs,
         )
+
+    # edited file has to read form disk
+    if args.inplace:
+        try:
+            with io.open(file, 'r', encoding='utf-8') as f:
+                outs = f.readlines()
+        except IOError as exc:
+            raise DiffError(str(exc))
+
     return make_diff(file, original, outs), errs
 
 
@@ -278,6 +294,17 @@ def main():
         default=[],
         help='exclude paths matching the given glob-like pattern(s)'
         ' from recursive search')
+    parser.add_argument(
+        '-i',
+        '--inplace',
+        action='store_true',
+        help='correct files in place')
+    parser.add_argument(
+        '-s',
+        '--style',
+        metavar="STRING_OR_FILE",
+        action='store',
+        help='pass file path or style to apply special formatting')
 
     args = parser.parse_args()
 
